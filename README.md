@@ -29,4 +29,4 @@ materials are not included.
 
 ## Citation
 
-Citation details will be added with the public release.
+Citation information for the manuscript will be updated upon publication.
