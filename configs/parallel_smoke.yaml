@@ -1,0 +1,42 @@
+seed: 123
+deterministic: false
+output_dir: "results/parallel_smoke"
+eval_test_every: 0
+eval_test_each_epoch: false
+eval_test_on_best: false
+save_epoch_predictions: false
+epochs: 1
+early_stop_patience: 1
+save_epoch_checkpoint_start: 1
+save_epoch_checkpoint_end: 1
+batch_size: 128
+lr: 1e-4
+dropout: 0.1
+weight_decay: 0.02
+warmup_epochs: 0
+warmup_start_factor: 0.2
+
+wsi_anchors_path: "assets/anchors/anchors_wsi.pth"
+wsi_anchor_momentum: 0.99
+
+cca_weight: 0.1
+intra_decor_weight: 0.02
+aux_weight: 1.0
+os_loss_weight: 1.0
+rfs_loss_weight: 2.0
+
+loader:
+  num_workers: 0
+  pin_memory: false
+  persistent_workers: false
+  prefetch_factor: 4
+  cache_mode: "none"
+  use_threaded_loader: false
+
+train:
+  data_h5: "data/A/data.h5"
+  surv_csv: "data/A/surv.csv"
+
+val:
+  data_h5: "data/B/data.h5"
+  surv_csv: "data/B/surv.csv"

@@ -1,0 +1,33 @@
+column_name,description
+PatientID,Anonymized patient identifier
+split,Dataset role used in model development/evaluation
+cohort,Cohort label A-E
+OS_Event,Overall-survival event indicator
+OS_Time,Overall-survival follow-up time in days
+TTR_Event,Time-to-recurrence event indicator
+TTR_Time,Time-to-recurrence follow-up time in days
+AJCC_TNM_Group,AJCC/TNM grouped stage label
+BCLC_Group,BCLC grouped stage label
+CNLC_Group,CNLC grouped stage label
+Age10,Age scaled per 10 years
+Height10,Height scaled per 10 cm
+Weight10,Weight scaled per 10 kg
+BMI5,Body-mass index scaled per 5 kg/m^2
+Male,Male sex indicator
+Smoking_Pos,Smoking-history indicator
+Alcohol_Pos,Alcohol-use indicator
+Cirrhosis_Pos,Cirrhosis indicator
+AFP_High20,AFP >= 20 ng/mL indicator
+HBV_Pos,HBV infection indicator
+HCV_Pos,HCV infection indicator
+TumorMulti,Multiple tumors indicator
+Capsule_Pos,Tumor capsule present indicator
+MVI_Pos,Microvascular invasion indicator
+PVTT_Pos,Portal-vein tumor thrombus indicator
+Metastasis_Pos,Metastasis indicator
+ChildPugh_B,Child-Pugh class B indicator
+GradeHigh,High-grade tumor indicator
+ECOG_1plus,ECOG performance status >= 1 indicator
+StageAdv,AJCC/TNM advanced-stage indicator
+BCLC_Adv,BCLC advanced-stage indicator
+CNLC_Adv,CNLC advanced-stage indicator
