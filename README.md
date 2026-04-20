@@ -21,12 +21,6 @@ python -m src.train configs/default.yaml
 The default configs expect local backbone weights to be available outside this
 repository.
 
-## Release Scope
-
-This repository contains the cleaned project code and publication release
-assets. Controlled institutional raw CT, WSI, and patient-level source
-materials are not included.
-
 ## Citation
 
 Citation information for the manuscript will be updated upon publication.
