@@ -33,13 +33,13 @@ model/prov-gigapath
 model/ct-fm/ct_fm_feature_extractor
 ```
 
-The WSI anchor payload is included at:
+RPHN uses a project-specific WSI anchor bank for the explicit pathology concept stream. The released anchor payload is provided at:
 
 ```text
 assets/anchors/anchors_wsi.pth
 ```
 
-For the expected HDF5/CSV input structure, see `DATA_SCHEMA.md`.
+Anchor packing utilities are available under `src/anchors/`. For the expected HDF5/CSV input structure, see `DATA_SCHEMA.md`.
 
 ## Quick Start
 
