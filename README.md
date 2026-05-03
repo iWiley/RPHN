@@ -1,6 +1,6 @@
 # RPHN: Radiology-Pathology Hybrid Network
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19659612.svg)](...)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19659612.svg)](https://doi.org/10.5281/zenodo.19659612)
 
 Cleaned repository for the Radiology-Pathology Hybrid Network (RPHN) project in
 hepatocellular carcinoma, including the manuscript-facing training code,
@@ -11,8 +11,8 @@ runtime assets, and publication release materials.
 - `src/`: model, data pipeline, training, and evaluation utilities
 - `configs/`: runnable experiment configs
 - `assets/`: lightweight runtime assets
-- `publication/`: released figures, tables, supplementary files, and release
-  weights
+- `publication/`: released figures, tables, supplementary files, and publication
+  materials
 
 ## Release scope and data availability
 
@@ -24,14 +24,28 @@ RPHN uses external foundation-model backbones. Third-party backbone weights are 
 
 The public release is intended for code inspection, methodological review, and use with compatible data under the stated license. Full reproduction from institutional raw source data is subject to the data-access constraints described in the manuscript.
 
+## Runtime assets
+
+The default training code expects local third-party backbone weights at:
+
+```text
+model/prov-gigapath
+model/ct-fm/ct_fm_feature_extractor
+```
+
+RPHN uses a project-specific WSI anchor bank for the explicit pathology concept stream. The released anchor payload is provided at:
+
+```text
+assets/anchors/anchors_wsi.pth
+```
+
+Anchor packing utilities are available under `src/anchors/`. For the expected HDF5/CSV input structure, see `DATA_SCHEMA.md`.
+
 ## Quick Start
 
 ```bash
 python -m src.train configs/default.yaml
 ```
-
-The default configs expect local backbone weights to be available outside this
-repository.
 
 ## License and citation
 
