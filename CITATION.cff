@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+title: "RPHN: Radiology-Pathology Hybrid Network"
+message: "If you use this repository, please cite the associated manuscript."
+authors:
+  - family-names: Jia
+    given-names: Weili
+  - family-names: Zhao
+    given-names: Shuo
+  - family-names: Duan
+    given-names: Xiaoyang
+repository-code: "https://github.com/iWiley/RPHN"
+license: "CC-BY-NC-4.0"
