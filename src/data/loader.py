@@ -1,6 +1,5 @@
 import os
 
-import numpy as np
 import pandas as pd
 import torch
 from queue import Queue
@@ -102,7 +101,7 @@ class CachedTensorLoader:
 
     def _build(self):
         rows = [self.dataset[idx] for idx in tqdm(range(self.num_samples), desc=self.desc, leave=False)]
-        wsi_t, wsi_p, ct_t, ct_masks, evt_os, tm_os, evt_rfs, tm_rfs, names = zip(*rows)
+        wsi_t, wsi_p, ct_t, ct_masks, evt_os, tm_os, evt_ttr, tm_ttr, names = zip(*rows)
 
         self.wsi_is_tensor = len({tuple(x.shape) for x in wsi_t}) == 1
         self.pos_is_tensor = len({tuple(x.shape) for x in wsi_p}) == 1
@@ -115,8 +114,8 @@ class CachedTensorLoader:
         self.ct_masks = torch.stack(ct_masks) if self.mask_is_tensor else list(ct_masks)
         self.evt_os = torch.stack(evt_os)
         self.tm_os = torch.stack(tm_os)
-        self.evt_rfs = torch.stack(evt_rfs)
-        self.tm_rfs = torch.stack(tm_rfs)
+        self.evt_ttr = torch.stack(evt_ttr)
+        self.tm_ttr = torch.stack(tm_ttr)
         self.names = list(names)
 
     def __len__(self):
@@ -134,18 +133,14 @@ class CachedTensorLoader:
                 self.ct_masks.index_select(0, idx) if self.mask_is_tensor else [self.ct_masks[i] for i in idx_list],
                 self.evt_os.index_select(0, idx),
                 self.tm_os.index_select(0, idx),
-                self.evt_rfs.index_select(0, idx),
-                self.tm_rfs.index_select(0, idx),
+                self.evt_ttr.index_select(0, idx),
+                self.tm_ttr.index_select(0, idx),
                 [self.names[i] for i in idx_list],
             ))
 
 
 def normalize_surv(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.rename(columns={"OS_Status": "OS", "OS.time": "OS_Time", "RFS_Status": "RFS", "RFS.time": "RFS_Time"})
     df.index = df.index.map(str)
-    for column in ("OS", "OS_Time", "RFS", "RFS_Time"):
-        if column not in df.columns:
-            df[column] = np.nan
     return df
 
 

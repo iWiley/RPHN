@@ -1,7 +1,7 @@
 # Example workspace config: train on A, validate on B, test on C/E/D.
 seed: 1344107968
 deterministic: false
-output_dir: "results/xt1"
+output_dir: "results"
 eval_test_every: 0
 eval_test_each_epoch: false
 save_epoch_predictions: true
@@ -23,7 +23,7 @@ cca_weight: 0.1
 intra_decor_weight: 0.02
 aux_weight: 1.0
 os_loss_weight: 1.0
-rfs_loss_weight: 2.0
+ttr_loss_weight: 2.0
 
 loader:
   num_workers: 0
@@ -45,9 +45,9 @@ test:
   - name: "C"
     data_h5: "data/C/data.h5"
     surv_csv: "data/C/surv.csv"
-  - name: "E"
-    data_h5: "data/E/data.h5"
-    surv_csv: "data/E/surv.csv"
   - name: "D"
     data_h5: "data/D/data.h5"
     surv_csv: "data/D/surv.csv"
+  - name: "E"
+    data_h5: "data/E/data.h5"
+    surv_csv: "data/E/surv.csv"

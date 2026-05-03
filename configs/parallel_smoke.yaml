@@ -23,7 +23,7 @@ cca_weight: 0.1
 intra_decor_weight: 0.02
 aux_weight: 1.0
 os_loss_weight: 1.0
-rfs_loss_weight: 2.0
+ttr_loss_weight: 2.0
 
 loader:
   num_workers: 0

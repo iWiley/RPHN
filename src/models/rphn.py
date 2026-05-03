@@ -186,7 +186,7 @@ class RPHN(nn.Module):
             'intra_decor_wsi': batch_wise_correlation(wsi_latent_patient, wsi_concept_patient),
             'intra_decor_ct': batch_wise_correlation(ct_latent_vec, ct_explicit_vec),
         }
-        return output_dict['survival_risk_os'], output_dict['survival_risk_rfs'], output_dict
+        return output_dict['survival_risk_os'], output_dict['survival_risk_ttr'], output_dict
 
     @torch.no_grad()
     def apply_wsi_anchor_momentum(self, momentum: float = 0.99):

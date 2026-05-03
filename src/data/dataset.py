@@ -396,10 +396,10 @@ class MultimodalDataset(Dataset):
                     f"Survival value '{key}' is not numeric for patient: {pname}, value={value!r}"
                 ) from exc
 
-        evt_os = _require_float("OS")
+        evt_os = _require_float("OS_Event")
         tm_os = _require_float("OS_Time")
-        evt_rfs = _require_float("RFS")
-        tm_rfs = _require_float("RFS_Time")
+        evt_ttr = _require_float("TTR_Event")
+        tm_ttr = _require_float("TTR_Time")
 
         return (
             wsi_tensor,
@@ -408,14 +408,14 @@ class MultimodalDataset(Dataset):
             ct_masks,
             torch.tensor(evt_os, dtype=torch.float32),
             torch.tensor(tm_os, dtype=torch.float32),
-            torch.tensor(evt_rfs, dtype=torch.float32),
-            torch.tensor(tm_rfs, dtype=torch.float32),
+            torch.tensor(evt_ttr, dtype=torch.float32),
+            torch.tensor(tm_ttr, dtype=torch.float32),
             pname,
         )
 
 
 def rphn_collate_fn(batch):
-    wsi_t, wsi_p, ct_t, ct_masks, evt_os, tm_os, evt_rfs, tm_rfs, names = zip(*batch)
+    wsi_t, wsi_p, ct_t, ct_masks, evt_os, tm_os, evt_ttr, tm_ttr, names = zip(*batch)
 
     wsi_same_shape = len({tuple(x.shape) for x in wsi_t}) == 1
     pos_same_shape = len({tuple(x.shape) for x in wsi_p}) == 1
@@ -429,7 +429,7 @@ def rphn_collate_fn(batch):
         torch.stack(ct_masks) if mask_same_shape else list(ct_masks),
         torch.stack(evt_os),
         torch.stack(tm_os),
-        torch.stack(evt_rfs),
-        torch.stack(tm_rfs),
+        torch.stack(evt_ttr),
+        torch.stack(tm_ttr),
         list(names),
     )

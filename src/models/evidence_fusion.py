@@ -67,7 +67,7 @@ class ParallelEvidenceFusion(nn.Module):
             nn.Dropout(0.1),
             nn.Linear(hidden_dim, 1),
         )
-        self.risk_rfs = nn.Sequential(
+        self.risk_ttr = nn.Sequential(
             nn.Linear(self.input_dim * 2, hidden_dim),
             nn.ReLU(),
             nn.Dropout(0.1),
@@ -80,7 +80,7 @@ class ParallelEvidenceFusion(nn.Module):
         z_wsi = self.wsi_context_proj(z_wsi_raw)
         z_all = torch.cat([z_ct, z_wsi], dim=1)
         risk_os = self.risk_os(z_all)
-        risk_rfs = self.risk_rfs(z_all)
+        risk_ttr = self.risk_ttr(z_all)
 
         z_shared_aux = 0.5 * (z_ct + z_wsi)
         z_ct_unique = z_ct - z_shared_aux
@@ -103,5 +103,5 @@ class ParallelEvidenceFusion(nn.Module):
                 "wsi_patch_attention": attn_weights,
             },
             "survival_risk_os": risk_os,
-            "survival_risk_rfs": risk_rfs,
+            "survival_risk_ttr": risk_ttr,
         }

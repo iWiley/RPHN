@@ -82,9 +82,9 @@ def save_epoch_predictions(preds, save_path):
             "OS_Pred": _to_flat_numpy(preds.get("os_s", [])),
             "OS_Event": _to_flat_numpy(preds.get("os_e", [])),
             "OS_Time": _to_flat_numpy(preds.get("os_t", [])),
-            "RFS_Pred": _to_flat_numpy(preds.get("rfs_s", [])),
-            "RFS_Event": _to_flat_numpy(preds.get("rfs_e", [])),
-            "RFS_Time": _to_flat_numpy(preds.get("rfs_t", [])),
+            "TTR_Pred": _to_flat_numpy(preds.get("ttr_s", [])),
+            "TTR_Event": _to_flat_numpy(preds.get("ttr_e", [])),
+            "TTR_Time": _to_flat_numpy(preds.get("ttr_t", [])),
         }
     ).to_csv(save_path, index=False)
 
@@ -135,7 +135,7 @@ def build_runtime_context(cfg: dict, device: torch.device, seed: int) -> dict:
         intra_decor_weight=float(cfg.get("intra_decor_weight", 0.05)),
         aux_weight=float(cfg.get("aux_weight", 1.0)),
         os_loss_weight=float(cfg.get("os_loss_weight", 1.0)),
-        rfs_loss_weight=float(cfg.get("rfs_loss_weight", 1.0)),
+        ttr_loss_weight=float(cfg.get("ttr_loss_weight", 1.0)),
     ).to(device)
 
     output_dir = cfg.get("output_dir", "results")
@@ -221,8 +221,8 @@ def _format_timing_summary(prefix: str, summary: dict) -> str:
 
 def train_one_epoch(model, loader, optimizer, scaler, criterion, epoch, device, use_amp=False, wsi_anchor_momentum=0.99, timing_cfg=None):
     model.train()
-    metrics = {'loss': 0, 'l_os': 0, 'l_rfs': 0, 'l_cca': 0, 'l_intra': 0, 'count': 0}
-    preds = {k: [] for k in ['os_s', 'os_e', 'os_t', 'rfs_s', 'rfs_e', 'rfs_t']}
+    metrics = {'loss': 0, 'l_os': 0, 'l_ttr': 0, 'l_cca': 0, 'l_intra': 0, 'count': 0}
+    preds = {k: [] for k in ['os_s', 'os_e', 'os_t', 'ttr_s', 'ttr_e', 'ttr_t']}
     progress = tqdm(loader, desc=f"Epoch {epoch + 1}", leave=False, dynamic_ncols=True)
     timing_cfg = timing_cfg or {}
     enable_timing = bool(timing_cfg.get('enable', False))
@@ -240,7 +240,7 @@ def train_one_epoch(model, loader, optimizer, scaler, criterion, epoch, device, 
         step_timer.add('data_wait', time.perf_counter() - fetch_start)
         step_idx += 1
         if batch is None: continue
-        wsi, pos, ct_vol, ct_masks, evt_os, tm_os, evt_rfs, tm_rfs, names = batch
+        wsi, pos, ct_vol, ct_masks, evt_os, tm_os, evt_ttr, tm_ttr, names = batch
         non_blocking = device.type == 'cuda'
 
         h2d_start = time.perf_counter()
@@ -248,7 +248,7 @@ def train_one_epoch(model, loader, optimizer, scaler, criterion, epoch, device, 
         pos = _move_batch_to_device(pos, device, non_blocking=non_blocking)
         ct_vol = _move_batch_to_device(ct_vol, device, non_blocking=non_blocking)
         ct_masks = _move_batch_to_device(ct_masks, device, non_blocking=non_blocking)
-        evt_os, tm_os, evt_rfs, tm_rfs = [x.to(device, non_blocking=non_blocking) for x in [evt_os, tm_os, evt_rfs, tm_rfs]]
+        evt_os, tm_os, evt_ttr, tm_ttr = [x.to(device, non_blocking=non_blocking) for x in [evt_os, tm_os, evt_ttr, tm_ttr]]
         if enable_timing:
             _device_sync(device)
         step_timer.add('h2d', time.perf_counter() - h2d_start)
@@ -256,8 +256,8 @@ def train_one_epoch(model, loader, optimizer, scaler, criterion, epoch, device, 
         optimizer.zero_grad()
         fw_start = time.perf_counter()
         with torch.amp.autocast(device_type=device.type, enabled=use_amp, dtype=torch.bfloat16):
-            os_score, rfs_score, out_dict = model(wsi, pos, ct_vol, ct_masks)
-            l_total, l_dict = criterion(os_score, rfs_score, evt_os, tm_os, evt_rfs, tm_rfs, out_dict)
+            os_score, ttr_score, out_dict = model(wsi, pos, ct_vol, ct_masks)
+            l_total, l_dict = criterion(os_score, ttr_score, evt_os, tm_os, evt_ttr, tm_ttr, out_dict)
         if enable_timing:
             _device_sync(device)
         step_timer.add('forward', time.perf_counter() - fw_start)
@@ -282,7 +282,7 @@ def train_one_epoch(model, loader, optimizer, scaler, criterion, epoch, device, 
         bs = len(names)
         metrics['loss'] += l_total.item() * bs
         metrics['l_os'] += l_dict.get('l_os', 0) * bs
-        metrics['l_rfs'] += l_dict.get('l_rfs', 0) * bs
+        metrics['l_ttr'] += l_dict.get('l_ttr', 0) * bs
         metrics['l_cca'] += l_dict.get('l_cca', 0) * bs
         metrics['l_intra'] += l_dict.get('l_intra', 0) * bs
         metrics['count'] += bs
@@ -291,7 +291,7 @@ def train_one_epoch(model, loader, optimizer, scaler, criterion, epoch, device, 
         progress.set_postfix(
             loss=f"{avg_loss:.3f}",
             os=f"{float(l_dict.get('l_os', 0.0)):.3f}",
-            rfs=f"{float(l_dict.get('l_rfs', 0.0)):.3f}",
+            ttr=f"{float(l_dict.get('l_ttr', 0.0)):.3f}",
         )
         if enable_timing and step_idx % print_every == 0:
             avg_t = step_timer.averages()
@@ -301,18 +301,18 @@ def train_one_epoch(model, loader, optimizer, scaler, criterion, epoch, device, 
                 f"fw={avg_t['forward']:.3f}s bw={avg_t['backward']:.3f}s opt={avg_t['optim']:.3f}s"
             )
         
-        for k, v in zip(['os_s', 'os_e', 'os_t', 'rfs_s', 'rfs_e', 'rfs_t'], [os_score.detach().float(), evt_os, tm_os, rfs_score.detach().float(), evt_rfs, tm_rfs]):
+        for k, v in zip(['os_s', 'os_e', 'os_t', 'ttr_s', 'ttr_e', 'ttr_t'], [os_score.detach().float(), evt_os, tm_os, ttr_score.detach().float(), evt_ttr, tm_ttr]):
             preds[k].append(v)
     avg_losses = {k: v / max(1, metrics['count']) for k, v in metrics.items() if k != 'count'}
     tr_c_os = c_index_metric(torch.cat(preds['os_s']), torch.cat(preds['os_e']), torch.cat(preds['os_t']))
-    tr_c_rfs = c_index_metric(torch.cat(preds['rfs_s']), torch.cat(preds['rfs_e']), torch.cat(preds['rfs_t']))
+    tr_c_ttr = c_index_metric(torch.cat(preds['ttr_s']), torch.cat(preds['ttr_e']), torch.cat(preds['ttr_t']))
     timing_summary = step_timer.averages() if enable_timing else {}
-    return avg_losses, tr_c_os, tr_c_rfs, timing_summary
+    return avg_losses, tr_c_os, tr_c_ttr, timing_summary
 
 
 def evaluate(model, loader, device, use_amp=False, criterion=None, timing_cfg=None):
     model.eval()
-    preds = {k: [] for k in ['os_s', 'os_e', 'os_t', 'rfs_s', 'rfs_e', 'rfs_t', 'names']}
+    preds = {k: [] for k in ['os_s', 'os_e', 'os_t', 'ttr_s', 'ttr_e', 'ttr_t', 'names']}
     total_loss, count = 0.0, 0
     timing_cfg = timing_cfg or {}
     enable_timing = bool(timing_cfg.get('enable', False))
@@ -328,7 +328,7 @@ def evaluate(model, loader, device, use_amp=False, criterion=None, timing_cfg=No
                 break
             timer.add('data_wait', time.perf_counter() - fetch_start)
             if batch is None: continue
-            wsi, pos, ct_vol, ct_masks, evt_os, tm_os, evt_rfs, tm_rfs, names = batch
+            wsi, pos, ct_vol, ct_masks, evt_os, tm_os, evt_ttr, tm_ttr, names = batch
             non_blocking = device.type == 'cuda'
 
             h2d_start = time.perf_counter()
@@ -336,16 +336,16 @@ def evaluate(model, loader, device, use_amp=False, criterion=None, timing_cfg=No
             pos = _move_batch_to_device(pos, device, non_blocking=non_blocking)
             ct_vol = _move_batch_to_device(ct_vol, device, non_blocking=non_blocking)
             ct_masks = _move_batch_to_device(ct_masks, device, non_blocking=non_blocking)
-            evt_os_d, tm_os_d, evt_rfs_d, tm_rfs_d = [x.to(device, non_blocking=non_blocking) for x in [evt_os, tm_os, evt_rfs, tm_rfs]]
+            evt_os_d, tm_os_d, evt_ttr_d, tm_ttr_d = [x.to(device, non_blocking=non_blocking) for x in [evt_os, tm_os, evt_ttr, tm_ttr]]
             if enable_timing:
                 _device_sync(device)
             timer.add('h2d', time.perf_counter() - h2d_start)
 
             fw_start = time.perf_counter()
             with torch.amp.autocast(device_type=device.type, enabled=use_amp, dtype=torch.bfloat16):
-                os_score, rfs_score, out_dict = model(wsi, pos, ct_vol, ct_masks)
+                os_score, ttr_score, out_dict = model(wsi, pos, ct_vol, ct_masks)
                 if criterion is not None:
-                    l_total, _ = criterion(os_score, rfs_score, evt_os_d, tm_os_d, evt_rfs_d, tm_rfs_d, out_dict)
+                    l_total, _ = criterion(os_score, ttr_score, evt_os_d, tm_os_d, evt_ttr_d, tm_ttr_d, out_dict)
                     total_loss += l_total.item() * len(names)
                     count += len(names)
             if enable_timing:
@@ -353,7 +353,7 @@ def evaluate(model, loader, device, use_amp=False, criterion=None, timing_cfg=No
             timer.add('forward', time.perf_counter() - fw_start)
 
             post_start = time.perf_counter()
-            for k, v in zip(['os_s', 'os_e', 'os_t', 'rfs_s', 'rfs_e', 'rfs_t'], [os_score.detach().float(), evt_os_d, tm_os_d, rfs_score.detach().float(), evt_rfs_d, tm_rfs_d]):
+            for k, v in zip(['os_s', 'os_e', 'os_t', 'ttr_s', 'ttr_e', 'ttr_t'], [os_score.detach().float(), evt_os_d, tm_os_d, ttr_score.detach().float(), evt_ttr_d, tm_ttr_d]):
                 preds[k].append(v)
             preds['names'].extend(names)
             timer.add('postprocess', time.perf_counter() - post_start)
@@ -361,10 +361,10 @@ def evaluate(model, loader, device, use_amp=False, criterion=None, timing_cfg=No
 
     metric_start = time.perf_counter()
     c_os = c_index_metric(torch.cat(preds['os_s']), torch.cat(preds['os_e']), torch.cat(preds['os_t']))
-    c_rfs = c_index_metric(torch.cat(preds['rfs_s']), torch.cat(preds['rfs_e']), torch.cat(preds['rfs_t']))
+    c_ttr = c_index_metric(torch.cat(preds['ttr_s']), torch.cat(preds['ttr_e']), torch.cat(preds['ttr_t']))
     timer.add('metric', time.perf_counter() - metric_start)
     timing_summary = timer.averages() if enable_timing else {}
-    return c_os, c_rfs, total_loss / max(1, count) if criterion else None, preds, timing_summary
+    return c_os, c_ttr, total_loss / max(1, count) if criterion else None, preds, timing_summary
 
 def main():
     parser = argparse.ArgumentParser()
@@ -441,14 +441,14 @@ def main():
     def run_test_evaluations(row, epoch_num, epoch_sections, timing_prefix):
         summaries = []
         for t_item in test_loaders:
-            t_os, t_rfs, _, t_preds, test_timing = evaluate(model, t_item['loader'], device, use_amp, timing_cfg=timing_cfg)
+            t_os, t_ttr, _, t_preds, test_timing = evaluate(model, t_item['loader'], device, use_amp, timing_cfg=timing_cfg)
             s_name = _safe_name(t_item['name'])
             row.update({
                 f"test_{s_name}_os": float(t_os),
-                f"test_{s_name}_rfs": float(t_rfs),
-                f"test_{s_name}_sum": float(t_os + t_rfs),
+                f"test_{s_name}_ttr": float(t_ttr),
+                f"test_{s_name}_sum": float(t_os + t_ttr),
             })
-            summaries.append(f"{t_item['name']}={t_os:.3f}/{t_rfs:.3f}")
+            summaries.append(f"{t_item['name']}={t_os:.3f}/{t_ttr:.3f}")
             if test_timing:
                 print("   " + _format_timing_summary(f"[{timing_prefix}][{t_item['name']}] ", test_timing))
             if save_epoch_preds:
@@ -465,7 +465,7 @@ def main():
                 pg['lr'] = pg['target_lr'] * factor
 
         train_epoch_start = time.perf_counter()
-        train_loss_dict, c_os, c_rfs, timing_summary = train_one_epoch(
+        train_loss_dict, c_os, c_ttr, timing_summary = train_one_epoch(
             model, train_loader, optimizer, scaler, criterion, epoch, device, 
             use_amp, float(cfg.get('wsi_anchor_momentum', 0.99)), timing_cfg=timing_cfg
         )
@@ -475,13 +475,13 @@ def main():
 
         row = {
             'epoch': epoch + 1, 'train_loss': float(loss), 
-            'train_os': float(c_os), 'train_rfs': float(c_rfs), 'train_sum': float(c_os + c_rfs),
+            'train_os': float(c_os), 'train_ttr': float(c_ttr), 'train_sum': float(c_os + c_ttr),
             **{f"train_{k}": float(v) for k, v in train_loss_dict.items()},
         }
 
-        print(f"E{epoch+1:03d} | L:{loss:.3f} | OS_L:{train_loss_dict['l_os']:.3f}, RFS_L:{train_loss_dict['l_rfs']:.3f} | "
+        print(f"E{epoch+1:03d} | L:{loss:.3f} | OS_L:{train_loss_dict['l_os']:.3f}, TTR_L:{train_loss_dict['l_ttr']:.3f} | "
               f"CCA:{train_loss_dict['l_cca']:.3f} | "
-              f"TR_C: OS={c_os:.3f}, RFS={c_rfs:.3f}")
+              f"TR_C: OS={c_os:.3f}, TTR={c_ttr:.3f}")
         if timing_summary:
             print(
                 f"   [Epoch Timing] data={timing_summary['data_wait']:.3f}s "
@@ -494,12 +494,12 @@ def main():
         run_val_this_epoch = bool(val_loader) and (((epoch + 1) % eval_val_every) == 0 or (epoch + 1) == int(cfg.get('epochs', 100)))
         if run_val_this_epoch:
             val_epoch_start = time.perf_counter()
-            v_os, v_rfs, v_loss, val_preds, val_timing = evaluate(model, val_loader, device, use_amp, criterion, timing_cfg=timing_cfg)
+            v_os, v_ttr, v_loss, val_preds, val_timing = evaluate(model, val_loader, device, use_amp, criterion, timing_cfg=timing_cfg)
             epoch_sections.add('val_epoch', time.perf_counter() - val_epoch_start)
             if val_timing:
                 print("   " + _format_timing_summary("[Val Timing] ", val_timing))
-            score = v_os + v_rfs
-            row.update({'val_loss': float(v_loss), 'val_os': float(v_os), 'val_rfs': float(v_rfs), 'val_sum': float(score)})
+            score = v_os + v_ttr
+            row.update({'val_loss': float(v_loss), 'val_os': float(v_os), 'val_ttr': float(v_ttr), 'val_sum': float(score)})
             
             if scheduler and epoch >= warmup_epochs: scheduler.step(score)
             
@@ -533,7 +533,7 @@ def main():
                 save_epoch_predictions(val_preds, str(pred_dir / f"epoch_{epoch + 1:03d}_val.csv"))
                 epoch_sections.add('save_val_predictions', time.perf_counter() - save_val_pred_start)
         elif val_loader:
-            row.update({'val_loss': np.nan, 'val_os': np.nan, 'val_rfs': np.nan, 'val_sum': np.nan, 'val_smoothed': float(smoothed_val_score) if smoothed_val_score is not None else np.nan})
+            row.update({'val_loss': np.nan, 'val_os': np.nan, 'val_ttr': np.nan, 'val_sum': np.nan, 'val_smoothed': float(smoothed_val_score) if smoothed_val_score is not None else np.nan})
             print(f"   [Validation] skipped at epoch {epoch + 1} (eval_val_every={eval_val_every})")
 
         epoch_num = epoch + 1
@@ -566,9 +566,9 @@ def main():
         summary_line = (
             f"E{epoch + 1:03d} | "
             f"L:{loss:.3f} | "
-            f"TR: OS={c_os:.3f}, RFS={c_rfs:.3f} | "
+            f"TR: OS={c_os:.3f}, TTR={c_ttr:.3f} | "
             f"{val_loss_str}"
-            f"VAL: OS={row.get('val_os', 0):.3f}, RFS={row.get('val_rfs', 0):.3f}"
+            f"VAL: OS={row.get('val_os', 0):.3f}, TTR={row.get('val_ttr', 0):.3f}"
             f"{test_summary}"
         )
         print(summary_line)

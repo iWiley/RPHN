@@ -125,19 +125,19 @@ class HybridSurvivalLoss(nn.Module):
         intra_decor_weight=0.05,
         aux_weight=1.0,
         os_loss_weight=1.0,
-        rfs_loss_weight=1.0
+        ttr_loss_weight=1.0
     ):
         super().__init__()
         self.cca_weight = cca_weight
         self.intra_decor_weight = intra_decor_weight
         self.aux_weight = aux_weight
         self.os_loss_weight = os_loss_weight
-        self.rfs_loss_weight = rfs_loss_weight
+        self.ttr_loss_weight = ttr_loss_weight
 
-    def forward(self, risk_os, risk_rfs, evt_os, tm_os, evt_rfs, tm_rfs, out_dict):
+    def forward(self, risk_os, risk_ttr, evt_os, tm_os, evt_ttr, tm_ttr, out_dict):
         # 1. Primary Survival Losses
         l_os = cox_loss(risk_os, evt_os, tm_os)
-        l_rfs = cox_loss(risk_rfs, evt_rfs, tm_rfs)
+        l_ttr = cox_loss(risk_ttr, evt_ttr, tm_ttr)
         
         # 2. Auxiliary Structural Losses
         feats = out_dict['features']
@@ -155,14 +155,14 @@ class HybridSurvivalLoss(nn.Module):
                       out_dict['aux_losses'].get('intra_decor_ct', 0.0)
 
         # 4. Total Aggregation
-        total_loss = self.os_loss_weight * l_os + self.rfs_loss_weight * l_rfs + \
+        total_loss = self.os_loss_weight * l_os + self.ttr_loss_weight * l_ttr + \
                      self.aux_weight * (self.cca_weight * l_cca + \
                                       self.intra_decor_weight * l_intra)
         
         return total_loss, {
             'l_os': l_os.item(),
-            'l_rfs': l_rfs.item(),
+            'l_ttr': l_ttr.item(),
             'l_cca': l_cca.item() if torch.is_tensor(l_cca) else l_cca,
             'l_intra': l_intra.item() if torch.is_tensor(l_intra) else l_intra,
-            'l_aux': (total_loss - self.os_loss_weight * l_os - self.rfs_loss_weight * l_rfs).item()
+            'l_aux': (total_loss - self.os_loss_weight * l_os - self.ttr_loss_weight * l_ttr).item()
         }
