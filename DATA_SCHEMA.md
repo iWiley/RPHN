@@ -1,46 +1,22 @@
 # Data schema
 
-This document describes the canonical data interface expected by the RPHN training and evaluation code.
+This document summarizes the HDF5 input structure expected by the RPHN data loader. It is intended as a compact interface note rather than a full data-availability statement.
 
-RPHN uses paired arterial-phase CT, whole-slide histopathology patches, CT region masks, and patient-level OS/TTR outcomes. The repository does not define a universal hospital data-ingestion pipeline; users should convert compatible local data into the structure below.
+## Cohort files
 
-## Cohort layout
-
-Each cohort is represented by one HDF5 file and one survival CSV file:
-
-```text
-data/
-  A/
-    data.h5
-    surv.csv
-  B/
-    data.h5
-    surv.csv
-  C/
-    data.h5
-    surv.csv
-```
-
-The split assignment is controlled by the YAML config, for example:
+Each cohort is configured with one HDF5 file and one survival CSV file:
 
 ```yaml
 train:
   data_h5: "data/A/data.h5"
   surv_csv: "data/A/surv.csv"
-
-val:
-  data_h5: "data/B/data.h5"
-  surv_csv: "data/B/surv.csv"
-
-test:
-  - name: "C"
-    data_h5: "data/C/data.h5"
-    surv_csv: "data/C/surv.csv"
 ```
+
+The HDF5 file contains the paired CT and WSI inputs. The CSV only provides patient-level survival labels used by the Cox loss.
 
 ## HDF5 structure
 
-Each `data.h5` file contains one top-level group per patient. The group name must match the patient ID used in `surv.csv`.
+Each `data.h5` file contains one top-level group per patient. The group name is the patient ID and should match the corresponding row in `surv.csv`.
 
 ```text
 data.h5
@@ -50,7 +26,8 @@ data.h5
 │   │       ├── images
 │   │       └── coords
 │   └── ct/
-│       ├── bundle          # or slices
+│       ├── bundle          # preferred compact CT storage
+│       ├── slices          # alternative slice-based CT storage
 │       ├── mask/
 │       │   ├── liver
 │       │   ├── liver_lesion_or_tumor
@@ -60,27 +37,21 @@ data.h5
 └── ...
 ```
 
-Every patient group must contain both WSI and CT inputs.
+Each patient group must contain one WSI patch set, one CT volume source, and the four CT ROI masks.
 
 ## WSI fields
 
 ### `wsi/patches/images`
 
-A sequence of encoded RGB pathology patch images.
+Encoded RGB pathology patch images. The current loader expects JPEG XL-encoded patch bytes and decodes them with `imagecodecs`.
 
-The current loader expects JPEG XL-encoded patch bytes. After decoding, patches are converted to tensors and normalized for the GigaPath encoder.
-
-Expected decoded patch shape:
+After decoding, patches are represented as:
 
 ```text
 N × 3 × H × W
 ```
 
-The encoder resizes patches internally to:
-
-```text
-224 × 224
-```
+The GigaPath wrapper resizes and normalizes patches internally to the expected 224 × 224 ImageNet-normalized input.
 
 ### `wsi/patches/coords`
 
@@ -90,23 +61,13 @@ Patch coordinates with shape:
 N × 2
 ```
 
-Coordinates are used for spatial positional encoding and graph construction. They should be numeric and should use a consistent slide coordinate system within each WSI.
+Coordinates are used for spatial positional encoding and graph construction, so they should use a consistent coordinate system within each slide.
 
 ## CT fields
 
-Each patient group must contain either:
+Each patient group must contain either `ct/bundle` or `ct/slices`.
 
-```text
-ct/bundle
-```
-
-or:
-
-```text
-ct/slices
-```
-
-The preprocessing code converts CT data to numeric HU-space representation, applies intensity clipping/normalization, crops around the union of ROI masks with a 10 mm physical margin, and resizes the volume to:
+The preprocessing code reconstructs the CT volume, clips and normalizes intensity, crops around the union of ROI masks with a 10 mm physical margin, and resizes the result to:
 
 ```text
 1 × 128 × 128 × 128
@@ -124,7 +85,7 @@ For slice-based storage, the code also expects:
 ct.attrs["shape_xyz"]
 ```
 
-Optional slice-reconstruction attributes include:
+Optional slice-reconstruction attributes:
 
 ```text
 ct.attrs["offset_for_uint16"]
@@ -135,7 +96,7 @@ ct.attrs["inter"]
 
 ## CT ROI masks
 
-Each patient must provide four CT ROI masks:
+Required mask datasets:
 
 ```text
 ct/mask/liver
@@ -144,7 +105,7 @@ ct/mask/liver_peritumoral
 ct/mask/liver_vessels
 ```
 
-Channel order after preprocessing:
+The loader stacks them in this order:
 
 ```text
 0: liver
@@ -153,15 +114,15 @@ Channel order after preprocessing:
 3: liver_vessels
 ```
 
-Each mask should be a 3D binary or binary-like array aligned to the source CT volume.
+Each mask should be a 3D binary or binary-like array aligned to the source CT volume. During preprocessing, masks are cropped with the CT volume and resized to:
 
-The model uses these masks for the explicit CT evidence stream. In the manuscript pipeline, masks were initialized by a liver-focused segmentation workflow and then physician-refined before consensus acceptance.
+```text
+4 × 128 × 128 × 128
+```
 
 ## Survival CSV
 
-Each cohort requires a `surv.csv` file. The CSV index must be the patient ID and must match the HDF5 top-level group names.
-
-Required columns:
+The CSV is intentionally minimal. Its index must match the HDF5 patient IDs. The required columns are:
 
 ```text
 OS_Event
@@ -170,62 +131,15 @@ TTR_Event
 TTR_Time
 ```
 
-| Column | Meaning |
-|---|---|
-| `OS_Event` | Overall survival event indicator. `1` = death/event, `0` = censored. |
-| `OS_Time` | Observed OS follow-up time in days. |
-| `TTR_Event` | Time-to-recurrence event indicator. `1` = recurrence/event, `0` = censored. |
-| `TTR_Time` | Observed TTR follow-up time in days. |
+Times are expected in days; event indicators use `1` for event and `0` for censoring.
 
-Example:
+## Minimal check
 
-```csv
-PatientID,OS_Event,OS_Time,TTR_Event,TTR_Time
-A0001,0,2650,0,2650
-A0002,0,2304,1,721
-A0003,1,1040,1,752
-```
+Before training or evaluation, verify that every patient has:
 
-All four required columns must be present and numeric.
-
-## Optional clinical annotation
-
-The training code only requires the survival CSV columns above.
-
-Additional clinicopathologic variables used for manuscript-level statistical analysis may be stored separately, for example:
-
-```text
-publication/supplementary/table_s1_anonymized_patient_level_table.csv
-```
-
-These variables are not required by `src.train` unless a downstream analysis script explicitly uses them.
-
-## Runtime assets
-
-The data schema does not include third-party foundation-model weights.
-
-The active code expects local backbone weights at the paths resolved in `src/eval_utils.py`, including:
-
-```text
-model/prov-gigapath
-model/ct-fm/ct_fm_feature_extractor
-```
-
-The WSI concept stream also expects the anchor payload specified in the config, by default:
-
-```text
-assets/anchors/anchors_wsi.pth
-```
-
-## Validation checklist
-
-Before running training or evaluation, check that:
-
-1. Every HDF5 patient group has a matching row in `surv.csv`.
-2. Each patient contains WSI patches, WSI coordinates, CT volume data, and all four CT ROI masks.
-3. `surv.csv` contains `OS_Event`, `OS_Time`, `TTR_Event`, and `TTR_Time`.
-4. Survival times are numeric and expressed in days.
-5. Event indicators use `1` for event and `0` for censoring.
-6. CT masks are aligned with the source CT before preprocessing.
-7. WSI coordinates have shape `N × 2`.
-8. Required local backbone weights and WSI anchors are available.
+- a matching HDF5 group and CSV row
+- `wsi/patches/images`
+- `wsi/patches/coords`
+- `ct/bundle` or `ct/slices`
+- all four CT masks listed above
+- numeric OS and TTR labels in the CSV
