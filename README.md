@@ -1,6 +1,6 @@
 # RPHN: Radiology-Pathology Hybrid Network
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19659612.svg)](...)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19659612.svg)](https://doi.org/10.5281/zenodo.19659612)
 
 Cleaned repository for the Radiology-Pathology Hybrid Network (RPHN) project in
 hepatocellular carcinoma, including the manuscript-facing training code,
@@ -11,8 +11,8 @@ runtime assets, and publication release materials.
 - `src/`: model, data pipeline, training, and evaluation utilities
 - `configs/`: runnable experiment configs
 - `assets/`: lightweight runtime assets
-- `publication/`: released figures, tables, supplementary files, and release
-  weights
+- `publication/`: released figures, tables, supplementary files, and publication
+  materials
 
 ## Release scope and data availability
 
@@ -46,9 +46,6 @@ Anchor packing utilities are available under `src/anchors/`. For the expected HD
 ```bash
 python -m src.train configs/default.yaml
 ```
-
-The default configs expect local backbone weights to be available outside this
-repository.
 
 ## License and citation
 
