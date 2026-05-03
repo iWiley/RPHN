@@ -24,6 +24,23 @@ RPHN uses external foundation-model backbones. Third-party backbone weights are 
 
 The public release is intended for code inspection, methodological review, and use with compatible data under the stated license. Full reproduction from institutional raw source data is subject to the data-access constraints described in the manuscript.
 
+## Runtime assets
+
+The default training code expects local third-party backbone weights at:
+
+```text
+model/prov-gigapath
+model/ct-fm/ct_fm_feature_extractor
+```
+
+The WSI anchor payload is included at:
+
+```text
+assets/anchors/anchors_wsi.pth
+```
+
+For the expected HDF5/CSV input structure, see `DATA_SCHEMA.md`.
+
 ## Quick Start
 
 ```bash
