@@ -39,7 +39,6 @@ class RPHN(nn.Module):
         self.ct_backbone = ct_backbone
         self.ct_roi_names = tuple(ct_roi_names or DEFAULT_CT_ROI_NAMES)
         
-        # WSI Branch
         self.wsi_projector = WSIProjector(in_features=wsi_feature_dim, out_features=feature_dim)
         self.gnn = GraphNeuralNetworkWithSpatialInfo(
             in_channels=feature_dim,
@@ -61,7 +60,6 @@ class RPHN(nn.Module):
         wsi_output_dim = self.wsi_latent_dim + self.mil_wsi.concept_dim
         self.wsi_patch_feature_dim = feature_dim
 
-        # CT Branch
         self.ct_latent_dim = 128
         self.ct_encoder = CTDualStreamEncoder(
             feature_dim=ct_feature_dim,

@@ -41,8 +41,6 @@ def _should_save_epoch_checkpoint(cfg: dict, epoch_num: int) -> bool:
     return False
 
 class MetricsTracker:
-    """Persist epoch summaries as a single flat CSV history."""
-
     def __init__(self, log_dir):
         self.log_dir = Path(log_dir)
         self.history = []

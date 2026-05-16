@@ -163,8 +163,6 @@ def resize_binary_mask_zyx(mask_zyx: np.ndarray, target_shape: tuple[int, int, i
     mask_t = torch.from_numpy(np.asarray(mask_zyx, dtype=np.float32)).unsqueeze(0).unsqueeze(0)
     if tuple(int(v) for v in mask_t.shape[-3:]) != tuple(int(v) for v in target_shape):
         mask_t = F.interpolate(mask_t, size=target_shape, mode="trilinear", align_corners=False)
-    # A single ROI mask should stay channel-free here; preprocess_ct_masks_for_ctfm
-    # stacks multiple ROI volumes into the channel axis afterwards.
     return (mask_t >= 0.5).float().squeeze(0).squeeze(0)
 
 

@@ -6,11 +6,6 @@ import torch_geometric.nn as pyg_nn
 import torch_geometric.data
 
 class ExplicitConceptQuantifier(nn.Module):
-    """
-    Stream A: Explicit Pathologic Concept Quantifier (Continuous Mode)
-    Quantifies pathologic patterns by computing cosine similarity between
-    high-dimensional patch features and expert-defined anchors.
-    """
     def __init__(
         self,
         input_dim=1536,
@@ -37,32 +32,17 @@ class ExplicitConceptQuantifier(nn.Module):
         return self.num_concepts
 
     def compute_patch_scores(self, x):
-        """
-        Args:
-            x: (B, N, D) or (N, D) - Patch Features
-        Returns:
-            scores: (B, N, K) - Patch-level concept similarity scores
-        """
         if x.dim() == 2:
             x = x.unsqueeze(0) # (1, N, D)
 
-        # 1. Normalize for Cosine Similarity
         x_norm = F.normalize(x, p=2, dim=-1)
         anchors_norm = F.normalize(self.anchors, p=2, dim=-1)
 
-        # 2. Similarity Map (B, N, K)
         return torch.matmul(x_norm, anchors_norm.t())
 
     def forward(self, x):
-        """
-        Args:
-            x: (B, N, D) or (N, D) - Patch Features
-        Returns:
-            concept_profile: (B, K) - Patient-level concept ratios
-        """
         scores = self.compute_patch_scores(x)
 
-        # Patient-level concept ratio profiling.
         concept_profile = scores.mean(dim=1) # (B, K)
 
         return concept_profile
@@ -77,9 +57,6 @@ class ExplicitConceptQuantifier(nn.Module):
         self.anchors.data.copy_(self.anchor_ema)
 
 class SinusoidalSpatialEncoding2D(nn.Module):
-    """
-    2D Spatial Positional Encoding mapping (x, y) coordinates directly into the latent space.
-    """
     def __init__(self, d_model, temperature=10000.0):
         super().__init__()
         self.d_model = d_model
@@ -87,7 +64,6 @@ class SinusoidalSpatialEncoding2D(nn.Module):
         assert d_model % 4 == 0, "d_model must be divisible by 4 for 2D PE"
 
     def forward(self, x, pos):
-        # Supports either (N, D)/(N, 2) or batched (B, N, D)/(B, N, 2).
         added_batch_dim = False
         if x.dim() == 2:
             x = x.unsqueeze(0)
@@ -96,7 +72,6 @@ class SinusoidalSpatialEncoding2D(nn.Module):
         elif x.dim() != 3 or pos.dim() != 3:
             raise ValueError(f"Unexpected shapes for spatial encoding: x={tuple(x.shape)}, pos={tuple(pos.shape)}")
 
-        # Normalize coordinates to [0, 1] relative to each WSI bounding box.
         pos_norm = pos - pos.min(dim=1, keepdim=True)[0]
         pos_max = pos_norm.max(dim=1, keepdim=True)[0]
         pos_norm = pos_norm / (pos_max + 1e-8)
@@ -126,9 +101,6 @@ class SinusoidalSpatialEncoding2D(nn.Module):
         return out.squeeze(0) if added_batch_dim else out
 
 class WSIProjector(nn.Module):
-    """
-    Projector for WSI Features (Stream B Input).
-    """
     def __init__(self, in_features=1536, out_features=256):
         super(WSIProjector, self).__init__()
         self.in_features = in_features
@@ -140,7 +112,6 @@ class WSIProjector(nn.Module):
         self.spatial_pe = SinusoidalSpatialEncoding2D(d_model=out_features)
 
     def forward(self, x, pos):
-        # Now expects `pos` to inject explicit 2D topology
         features = self.adapter(x)
         features = self.spatial_pe(features, pos)
         return features
@@ -189,7 +160,6 @@ class MILModelWithPositionalEncoding(nn.Module):
         self.feature_extractor = feature_extractor # WSIProjector (Stream B)
         self.gnn = gnn # GNN (Stream B)
         
-        # --- Stream A: Explicit Concept Quantifier ---
         raw_dim = feature_extractor.in_features
         self.concept_quantifier = ExplicitConceptQuantifier(
             input_dim=raw_dim,
@@ -264,7 +234,6 @@ class MILModelWithPositionalEncoding(nn.Module):
         return torch.stack([feat.mean(dim=0) for feat in patch_latents], dim=0)
 
     def forward(self, images, positions, concept_inputs=None):
-        # images: (B, N, 1536) features
         if concept_inputs is None:
             concept_inputs = images
         concept_profiles = self.encode_concepts(concept_inputs)

@@ -187,8 +187,6 @@ class GigapathFeatureEncoder(nn.Module):
 
 
 class WSIFeatureExtractor:
-    """Thin numpy-facing wrapper used by H5 feature-cache extraction."""
-
     def __init__(self, model_name, device=None):
         self.encoder = GigapathFeatureEncoder(model_name=model_name, device=device)
 

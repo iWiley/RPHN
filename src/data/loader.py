@@ -11,10 +11,6 @@ from src.data.dataset import MultimodalDataset, rphn_collate_fn
 
 
 class ThreadedDataLoader:
-    """
-    Wrap a DataLoader to prefetch batches in a background thread.
-    """
-
     def __init__(self, loader, queue_size=4):
         self.loader = loader
         self.queue_size = queue_size
@@ -59,12 +55,6 @@ def _pin_batch(batch, enabled=True):
 
 
 class PreBatchedLoader:
-    """
-    Materialize evaluation batches once and reuse them across epochs.
-    This is useful when the dataset is already cached in RAM and repeated
-    collate-time stacking becomes the bottleneck.
-    """
-
     def __init__(self, dataset, batch_size, collate_fn, desc="Prebatching eval", pin_memory=False):
         self.dataset = dataset
         self.batch_size = int(batch_size)
@@ -89,11 +79,6 @@ class PreBatchedLoader:
 
 
 class CachedTensorLoader:
-    """
-    Materialize a full split into contiguous CPU tensors once, then serve
-    shuffled/sliced batches without per-step __getitem__/collate overhead.
-    """
-
     def __init__(self, dataset, batch_size, shuffle, desc="Tensorizing split", pin_memory=False):
         self.dataset = dataset
         self.batch_size = int(batch_size)

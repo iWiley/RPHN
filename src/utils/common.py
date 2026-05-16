@@ -19,7 +19,6 @@ def seed_everything(seed=42, deterministic=False):
             torch.backends.cudnn.deterministic = False
             torch.backends.cudnn.benchmark = True
 
-    # Keep MPS runs reproducible when available.
     if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
         torch.mps.manual_seed(seed)
 
@@ -31,7 +30,6 @@ def seed_everything(seed=42, deterministic=False):
         pass
     
 def c_index_metric(risk: torch.Tensor, events: torch.Tensor, times: torch.Tensor) -> float:
-    """Vectorized C-index on torch tensors without forcing CPU conversion."""
     risk = risk.view(-1)
     events = events.type(torch.bool).view(-1)
     times = times.view(-1)

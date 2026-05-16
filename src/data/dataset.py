@@ -141,7 +141,6 @@ def _canonicalize_ct_masks(ct_masks: torch.Tensor) -> torch.Tensor:
     else:
         ct_masks = ct_masks.float()
 
-    # Older preprocessing emitted a singleton per-ROI channel, i.e. (R,1,D,H,W).
     if ct_masks.dim() == 5 and ct_masks.size(1) == 1:
         ct_masks = ct_masks.squeeze(1)
 

@@ -234,12 +234,6 @@ class MultiROIExplicitEncoder(nn.Module):
 
 
 class CTDualStreamEncoder(nn.Module):
-    """
-    CT dual-stream encoder with:
-    1. latent global stream from the CT feature map
-    2. explicit multi-ROI stream from ROI-token interaction
-    """
-
     def __init__(
         self,
         feature_dim=384,

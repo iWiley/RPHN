@@ -3,10 +3,6 @@ import torch.nn as nn
 
 
 class WSIPatchAttentionPool(nn.Module):
-    """
-    Summarizes WSI patch tokens into a patient-level vector without CT conditioning.
-    """
-
     def __init__(self, dim):
         super().__init__()
         self.dim = int(dim)
@@ -42,11 +38,6 @@ class WSIPatchAttentionPool(nn.Module):
 
 
 class ParallelEvidenceFusion(nn.Module):
-    """
-    Parallel multimodal fusion:
-    CT and WSI are summarized independently, then fused as peer patient-level evidence.
-    """
-
     def __init__(self, input_dim=256, hidden_dim=128):
         super().__init__()
         self.input_dim = int(input_dim)
