@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import warnings
 from pathlib import Path
 
 import torch
@@ -127,8 +128,33 @@ def load_model_weights(model, model_path: str | Path, device: torch.device, stri
         for key in ("ema_state_dict", "state_dict", "model_state_dict", "model"):
             state_dict = payload.get(key)
             if isinstance(state_dict, dict):
-                return model.load_state_dict(state_dict, strict=strict)
-    return model.load_state_dict(payload, strict=strict)
+                incompatible = model.load_state_dict(state_dict, strict=strict)
+                _warn_on_non_strict_mismatch(incompatible, model_path, strict)
+                return incompatible
+    incompatible = model.load_state_dict(payload, strict=strict)
+    _warn_on_non_strict_mismatch(incompatible, model_path, strict)
+    return incompatible
+
+
+def _warn_on_non_strict_mismatch(incompatible, model_path: str | Path, strict: bool) -> None:
+    if strict:
+        return
+    missing = list(getattr(incompatible, "missing_keys", []))
+    unexpected = list(getattr(incompatible, "unexpected_keys", []))
+    if not missing and not unexpected:
+        return
+
+    preview = []
+    if missing:
+        preview.append(f"missing={missing[:8]}")
+    if unexpected:
+        preview.append(f"unexpected={unexpected[:8]}")
+    warnings.warn(
+        f"Loaded model weights from {str(model_path)!r} with non-strict key mismatches "
+        f"({'; '.join(preview)}).",
+        RuntimeWarning,
+        stacklevel=2,
+    )
 
 
 def select_eval_cohort(cfg: dict, split_name: str = "test", preferred_name: str | None = None):

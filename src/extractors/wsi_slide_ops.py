@@ -78,8 +78,8 @@ def resample_wsi(wsi_path, target_mpp, tile_size=4096, is_rgb=False, max_workers
 
                 with lock:
                     resampled_image.paste(tile, (paste_x, paste_y))
-        except Exception:
-            pass
+        except Exception as exc:
+            raise RuntimeError(f"Failed to resample tile at level coordinates ({x}, {y})") from exc
 
         return 1
 
@@ -93,8 +93,8 @@ def resample_wsi(wsi_path, target_mpp, tile_size=4096, is_rgb=False, max_workers
             for y in range(0, level_h, tile_size)
         ]
 
-        for _ in tqdm(as_completed(futures), total=total_tiles, desc="Resampling WSI", leave=False):
-            pass
+        for future in tqdm(as_completed(futures), total=total_tiles, desc="Resampling WSI", leave=False):
+            future.result()
 
     return resampled_image
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import warnings
 
 import numpy as np
 import torch
@@ -95,10 +96,20 @@ def load_gigapath_backbone(model_name, layers_to_skip=NUM_LAYERS_TO_SKIP):
         if not os.path.exists(weight_path):
             raise FileNotFoundError(f"Could not find WSI weights at {weight_path}")
         state_dict = torch.load(weight_path, map_location="cpu", weights_only=False)
-        model.load_state_dict(state_dict, strict=False)
+        incompatible = model.load_state_dict(state_dict, strict=False)
+        _warn_on_incompatible_state_dict(
+            incompatible,
+            source=weight_path,
+            module_name="GigaPath backbone",
+        )
     elif os.path.exists(model_name):
         state_dict = torch.load(model_name, map_location="cpu", weights_only=False)
-        model.load_state_dict(state_dict, strict=False)
+        incompatible = model.load_state_dict(state_dict, strict=False)
+        _warn_on_incompatible_state_dict(
+            incompatible,
+            source=model_name,
+            module_name="GigaPath backbone",
+        )
     else:
         model = timm.create_model(f"hf_hub:{model_name}", pretrained=True, num_classes=0)
 
@@ -111,6 +122,25 @@ def load_gigapath_backbone(model_name, layers_to_skip=NUM_LAYERS_TO_SKIP):
             model.layers = model.layers[:-layers_to_skip]
 
     return model
+
+
+def _warn_on_incompatible_state_dict(incompatible, *, source, module_name):
+    missing = list(getattr(incompatible, "missing_keys", []))
+    unexpected = list(getattr(incompatible, "unexpected_keys", []))
+    if not missing and not unexpected:
+        return
+
+    preview = []
+    if missing:
+        preview.append(f"missing={missing[:8]}")
+    if unexpected:
+        preview.append(f"unexpected={unexpected[:8]}")
+    warnings.warn(
+        f"Loaded {module_name} from {source!r} with non-strict key mismatches "
+        f"({'; '.join(preview)}).",
+        RuntimeWarning,
+        stacklevel=2,
+    )
 
 
 class GigapathFeatureEncoder(nn.Module):

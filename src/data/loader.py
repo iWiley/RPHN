@@ -46,13 +46,15 @@ class ThreadedDataLoader:
             yield item
 
 
-def _pin_batch(batch):
+def _pin_batch(batch, enabled=True):
+    if not enabled:
+        return batch
     if torch.is_tensor(batch):
         return batch.pin_memory()
     if isinstance(batch, list):
-        return [_pin_batch(x) for x in batch]
+        return [_pin_batch(x, enabled=enabled) for x in batch]
     if isinstance(batch, tuple):
-        return tuple(_pin_batch(x) for x in batch)
+        return tuple(_pin_batch(x, enabled=enabled) for x in batch)
     return batch
 
 
@@ -63,11 +65,12 @@ class PreBatchedLoader:
     collate-time stacking becomes the bottleneck.
     """
 
-    def __init__(self, dataset, batch_size, collate_fn, desc="Prebatching eval"):
+    def __init__(self, dataset, batch_size, collate_fn, desc="Prebatching eval", pin_memory=False):
         self.dataset = dataset
         self.batch_size = int(batch_size)
         self.collate_fn = collate_fn
         self.desc = desc
+        self.pin_memory = bool(pin_memory)
         self._batches = []
         self._build()
 
@@ -76,7 +79,7 @@ class PreBatchedLoader:
         for start in tqdm(range(0, total, self.batch_size), desc=self.desc, leave=False):
             end = min(start + self.batch_size, total)
             samples = [self.dataset[idx] for idx in range(start, end)]
-            self._batches.append(_pin_batch(self.collate_fn(samples)))
+            self._batches.append(_pin_batch(self.collate_fn(samples), enabled=self.pin_memory))
 
     def __len__(self):
         return len(self._batches)
@@ -91,11 +94,12 @@ class CachedTensorLoader:
     shuffled/sliced batches without per-step __getitem__/collate overhead.
     """
 
-    def __init__(self, dataset, batch_size, shuffle, desc="Tensorizing split"):
+    def __init__(self, dataset, batch_size, shuffle, desc="Tensorizing split", pin_memory=False):
         self.dataset = dataset
         self.batch_size = int(batch_size)
         self.shuffle = bool(shuffle)
         self.desc = desc
+        self.pin_memory = bool(pin_memory)
         self.num_samples = len(dataset)
         self._build()
 
@@ -136,7 +140,7 @@ class CachedTensorLoader:
                 self.evt_ttr.index_select(0, idx),
                 self.tm_ttr.index_select(0, idx),
                 [self.names[i] for i in idx_list],
-            ))
+            ), enabled=self.pin_memory)
 
 
 def normalize_surv(df: pd.DataFrame) -> pd.DataFrame:
@@ -185,6 +189,7 @@ def create_dataloader(split_cfg, batch_size, is_train: bool = False, loader_cfg:
             batch_size=batch_size,
             shuffle=True,
             desc=f"Tensorizing {split_cfg.get('name', 'train')}",
+            pin_memory=pin_memory,
         )
     elif (not is_train) and cache_mode == "full":
         loader = PreBatchedLoader(
@@ -192,6 +197,7 @@ def create_dataloader(split_cfg, batch_size, is_train: bool = False, loader_cfg:
             batch_size=batch_size,
             collate_fn=rphn_collate_fn,
             desc=f"Prebatching {split_cfg.get('name', 'eval')}",
+            pin_memory=pin_memory,
         )
     else:
         dataloader_kwargs = {
