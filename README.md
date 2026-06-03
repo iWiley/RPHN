@@ -1,6 +1,6 @@
 # RPHN: Radiology-Pathology Hybrid Network
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19659612.svg)](https://doi.org/10.5281/zenodo.19659612)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20287446.svg)](https://doi.org/10.5281/zenodo.20287446)
 
 Cleaned repository for the Radiology-Pathology Hybrid Network (RPHN) project in
 hepatocellular carcinoma, including the manuscript-facing training code,
